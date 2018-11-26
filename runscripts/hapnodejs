@@ -1,0 +1,130 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          hapnodejs
+# Required-Start:    $local_fs $network $remote_fs
+# Required-Stop:     $local_fs $network $remote_fs
+# Should-Start:      $NetworkManager
+# Should-Stop:       $NetworkManager
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts instance of HAP-Nodejs
+# Description:       starts instance of HAP-Nodejs using start-stop-daemon
+### END INIT INFO
+
+# Source HAP-Nodejs configuration
+if [ -f /etc/default/hapnodejs ]; then
+    . /etc/default/hapnodejs
+else
+    echo "/etc/default/hapnodejs not found using default settings.";
+fi
+
+# Source init functions
+. /lib/lsb/init-functions
+
+# Script name
+NAME=hapnodejs
+
+# App name
+DESC=HAP-Nodejs
+
+## Don't edit this file
+## Edit user configuation in /etc/default/hapnodejs to change
+##
+## SR_USER=         #$RUN_AS, username to run hapnodejs under, the default is hapnodejs
+## SR_HOME=         #$APP_PATH, the location of SickBeard.py, the default is /opt/hapnodejs
+## SR_DATA=         #$DATA_DIR, the location of sickbeard.db, cache, logs, the default is /opt/hapnodejs
+## SR_PIDFILE=      #$PID_FILE, the location of hapnodejs.pid, the default is /var/run/hapnodejs/hapnodejs.pid
+## NODE_BIN=      #$DAEMON, the location of the python binary, the default is /usr/bin/python2.7
+## SR_OPTS=         #$EXTRA_DAEMON_OPTS, extra cli option for hapnodejs, i.e. " --config=/home/hapnodejs/config.ini"
+## SSD_OPTS=        #$EXTRA_SSD_OPTS, extra start-stop-daemon option like " --group=users"
+##
+## EXAMPLE if want to run as different user
+## add SR_USER=username to /etc/default/hapnodejs
+## otherwise default hapnodejs is used
+
+## The defaults
+# Run as username
+RUN_AS=${SR_USER-hapnodejs}
+
+# Path to app SR_HOME=path_to_app_SickBeard.py
+APP_PATH=${SR_HOME-/opt/hapnodejs}
+
+# Data directory where sickbeard.db, cache and logs are stored
+DATA_DIR=${SR_DATA-/opt/hapnodejs}
+
+# Path to store PID file
+PID_FILE=${SR_PIDFILE-/var/run/hapnodejs/hapnodejs.pid}
+
+# path to python bin
+DAEMON=${NODE_BIN-/usr/bin/node}
+
+# Extra daemon option like: SR_OPTS=" --config=/home/hapnodejs/config.ini"
+EXTRA_DAEMON_OPTS=${SR_OPTS-}
+
+# Extra start-stop-daemon option like START_OPTS=" --group=users"
+EXTRA_SSD_OPTS=${SSD_OPTS-}
+##
+
+PID_PATH=`dirname $PID_FILE`
+DAEMON_OPTS=" Core.js -q --daemon --nolaunch --pidfile=${PID_FILE} --datadir=${DATA_DIR} ${EXTRA_DAEMON_OPTS}"
+
+##
+
+test -x $DAEMON || exit 0
+
+set -e
+
+# Create PID directory if not exist and ensure the HAP-Nodejs user can write to it
+if [ ! -d $PID_PATH ]; then
+    mkdir -p $PID_PATH
+    chown $RUN_AS $PID_PATH
+fi
+
+if [ ! -d $DATA_DIR ]; then
+    mkdir -p $DATA_DIR
+    chown $RUN_AS $DATA_DIR
+fi
+
+if [ -e $PID_FILE ]; then
+    PID=`cat $PID_FILE`
+    if ! kill -0 $PID > /dev/null 2>&1; then
+        echo "Removing stale $PID_FILE"
+        rm $PID_FILE
+    fi
+fi
+
+start_hapnodejs() {
+    echo "Starting $DESC"
+    start-stop-daemon -d $APP_PATH -c $RUN_AS $EXTRA_SSD_OPTS --start --pidfile $PID_FILE --exec $DAEMON -- $DAEMON_OPTS
+}
+
+stop_hapnodejs() {
+    echo "Stopping $DESC"
+    start-stop-daemon --stop --pidfile $PID_FILE --retry 15
+}
+
+case "$1" in
+    start)
+        start_hapnodejs
+        ;;
+    stop)
+        stop_hapnodejs
+        ;;
+
+    restart|force-reload)
+        stop_hapnodejs
+        sleep 2
+        start_hapnodejs
+        ;;
+    status)
+        status_of_proc -p "$PID_FILE" "$DAEMON" "$DESC"
+        ;;
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
