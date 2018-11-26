@@ -5,7 +5,7 @@ CURDIR=`pwd`
 cd 
 
 if [ `whoami` != 'root' ]; then
-		echo "You need to run this script as ROOT!"; exit;
+  echo "You need to run this script as ROOT!"; exit;  
 else
 
   apt-get update
@@ -64,8 +64,9 @@ else
 
   npm install mqtt --save
 
-  cd accessories/
+  cp $CURDIR/runscripts/hapnodejs /etc/init.d/hapnodejs
+  cp $CURDIR/runscripts/hapnodejs.default /etc/default/hapnodejs
 
-  clear
+  echo "Ready to start"; exit;  
 
 fi;
